@@ -58,6 +58,131 @@ try:
 except ImportError:
     psycopg2 = None
 
+# --- SQLite fallback layer (used automatically when DATABASE_URL is not set) ---
+import sqlite3
+
+def _sqlite_db_path():
+    # DB lives at the project root (parent of backend/) so data survives restarts
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.environ.get('SQLITE_DB_PATH') or os.path.join(_root, 'atendex.db')
+
+class _DictRow(dict):
+    """Dict row that also supports integer (tuple-style) indexing."""
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(dict.values(self))[key]
+        return dict.__getitem__(self, key)
+
+def _sqlite_row_factory(cursor, row):
+    d = _DictRow()
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
+def _sqlite_translate(query, raw_conn):
+    """Translate PostgreSQL-flavored SQL into SQLite-compatible SQL."""
+    q = query.strip()
+    # Skip PostgreSQL-only maintenance blocks entirely (safe no-op)
+    if ('DO $$' in q or 'information_schema' in q or 'pg_constraint' in q
+            or 'pg_class' in q or 'pg_index' in q):
+        return "SELECT 1 WHERE 0"
+    # PostgreSQL placeholders -> SQLite
+    q = re.sub(r"%s", "?", q)
+    # Interval arithmetic: NOW() - INTERVAL 'n unit' -> datetime('now','-n unit')
+    q = re.sub(r"NOW\(\)\s*-\s*INTERVAL\s+'(\d+)\s+([A-Za-z]+)'",
+               lambda m: "datetime('now','-%s %s')" % (m.group(1), m.group(2)), q, flags=re.I)
+    # Generic NOW() -> CURRENT_TIMESTAMP
+    q = re.sub(r"\bNOW\(\)", "CURRENT_TIMESTAMP", q, flags=re.I)
+    # SERIAL PRIMARY KEY -> INTEGER PRIMARY KEY AUTOINCREMENT
+    q = re.sub(r"\bSERIAL\s+PRIMARY\s+KEY", "INTEGER PRIMARY KEY AUTOINCREMENT", q, flags=re.I)
+    # ALTER TABLE ... ADD COLUMN IF NOT EXISTS -> conditional plain ADD COLUMN
+    m = re.match(r"ALTER\s+TABLE\s+[\"'`\[]?(\w+)[\"'`\]]?\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+[\"'`\[]?(\w+)[\"'`\]]?\s+(.*)$",
+                 q, re.I | re.S)
+    if m:
+        table, col, coldef = m.group(1), m.group(2), m.group(3).strip().rstrip(';')
+        try:
+            existing = {r[1] for r in raw_conn.execute("PRAGMA table_info(%s)" % table).fetchall()}
+        except Exception:
+            existing = set()
+        if col in existing:
+            return "SELECT 1 WHERE 0"
+        # SQLite cannot ADD COLUMN with NOT NULL or UNIQUE constraints
+        coldef = re.sub(r"\s+NOT\s+NULL\s*$", "", coldef, flags=re.I).strip()
+        coldef = re.sub(r"\s+UNIQUE\s*$", "", coldef, flags=re.I).strip()
+        return "ALTER TABLE %s ADD COLUMN %s %s" % (table, col, coldef)
+    return q
+
+class _SQLiteCursor:
+    """Cursor wrapper translating PostgreSQL-style calls onto sqlite3."""
+    def __init__(self, cur, raw_conn):
+        self._cur = cur
+        self._raw_conn = raw_conn
+
+    def execute(self, query, args=()):
+        sql = _sqlite_translate(query, self._raw_conn)
+        if args is None:
+            args = ()
+        elif not isinstance(args, (tuple, list)):
+            args = (args,)
+        self._cur.execute(sql, tuple(args))
+        return self._cur
+
+    def executemany(self, query, seq):
+        self._cur.executemany(_sqlite_translate(query, self._raw_conn), seq)
+        return self._cur
+
+    def fetchone(self):
+        return self._cur.fetchone()
+
+    def fetchall(self):
+        return self._cur.fetchall()
+
+    def fetchmany(self, size=None):
+        return self._cur.fetchmany(size) if size is not None else self._cur.fetchmany()
+
+    @property
+    def description(self):
+        return self._cur.description
+
+    @property
+    def rowcount(self):
+        return self._cur.rowcount
+
+    def close(self):
+        self._cur.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self._cur.close()
+        return False
+
+class _SQLiteConnection:
+    """sqlite3 connection wrapper mimicking the psycopg2 API used by this app."""
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self, cursor_factory=None):
+        return _SQLiteCursor(self._conn.cursor(), self._conn)
+
+    def commit(self):
+        try:
+            self._conn.commit()
+        except sqlite3.ProgrammingError:
+            # sqlite3 forbids commit() while a statement still has pending rows
+            # (e.g. RETURNING). In autocommit mode the data is already persisted.
+            pass
+
+    def rollback(self):
+        try:
+            self._conn.rollback()
+        except sqlite3.ProgrammingError:
+            pass
+
+    def close(self):
+        self._conn.close()
+
 # --- Configuration ---
 _SETTINGS_CACHE = {}
 _SETTINGS_CACHE_TIME = 0
@@ -87,9 +212,20 @@ def get_database_url():
 # Protocol Integrity: Enforce mandatory environment lattice in production
 IS_PROD = os.environ.get('FLASK_ENV') == 'production'
 
+# Warn when running an outdated Werkzeug (CVE-2024-34069 debugger RCE affects <3.0.3)
+try:
+    from importlib.metadata import version as _pkg_version
+    _wz_ver = tuple(int(p) for p in _pkg_version('werkzeug').split('.')[:3])
+    if _wz_ver < (3, 0, 3):
+        print(f"[SECURITY WARNING] Werkzeug {_pkg_version('werkzeug')} is outdated; upgrade to >=3.0.3 (debugger RCE fix).")
+except Exception:
+    pass
+
 DATABASE_URL = get_database_url()
 # Vercel Protocol: Map ephemeral storage to /tmp for runtime operations
-UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', '/tmp/atendex_uploads' if IS_PROD else 'static/img')
+_DEFAULT_UPLOAD_FOLDER = '/tmp/atendex_uploads' if IS_PROD else os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'static', 'img')
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or _DEFAULT_UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     try:
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -104,10 +240,18 @@ DEFAULT_GRACE_MIN = 5
 DEFAULT_RADIUS_M = 10  # meters
 
 # System Config Lattice: Built-in defaults with environment overriding
-SECRET_KEY = os.environ.get('SECRET_KEY', "atendex-protocol-key-9988776655")
-SUPERADMIN_PASS = os.environ.get('SUPERADMIN_PASS', '1234')
-ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin123')
-DEFAULT_PASS = "password"
+# Security: never fall back to known weak secrets in production
+SECRET_KEY = os.environ.get('SECRET_KEY') or (secrets.token_hex(32) if IS_PROD else "atendex-protocol-key-9988776655")
+SUPERADMIN_PASS = os.environ.get('SUPERADMIN_PASS') or (secrets.token_urlsafe(12) if IS_PROD else '1234')
+ADMIN_PASS = os.environ.get('ADMIN_PASS') or (secrets.token_urlsafe(12) if IS_PROD else 'admin123')
+if IS_PROD:
+    if not os.environ.get('SECRET_KEY'):
+        print('[SECURITY WARNING] SECRET_KEY not set in production; using an ephemeral key (sessions reset on restart).')
+    if not os.environ.get('SUPERADMIN_PASS'):
+        print('[SECURITY WARNING] SUPERADMIN_PASS not set in production; generated random password:', SUPERADMIN_PASS)
+    if not os.environ.get('ADMIN_PASS'):
+        print('[SECURITY WARNING] ADMIN_PASS not set in production; generated random password:', ADMIN_PASS)
+DEFAULT_PASS = os.environ.get('DEFAULT_PASS') or ('password' if not IS_PROD else secrets.token_urlsafe(12))
 
 FOUNDER_BIO = os.environ.get('FOUNDER_BIO', "CEO & Founder of Atendex Grid Systems. Visionary Architect committed to high-fidelity presence validation.")
 FOUNDER_EMAIL = os.environ.get('FOUNDER_EMAIL', 'omonire@atendex.com')
@@ -117,9 +261,11 @@ OMONIRE_BIO = FOUNDER_BIO
 
 # Robust path resolution for deployment
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, os.pardir))
+FRONTEND_DIR = os.path.join(PROJECT_ROOT, 'frontend')
 app = Flask(__name__,
-            static_folder=os.path.join(BASE_DIR, 'static'),
-            template_folder=os.path.join(BASE_DIR, 'templates'))
+            static_folder=os.path.join(FRONTEND_DIR, 'static'),
+            template_folder=os.path.join(FRONTEND_DIR, 'templates'))
 
 print(f"Initializing AtendeX Portal (Base Dir: {BASE_DIR})")
 
@@ -140,11 +286,11 @@ csrf.init_app(app)
 
 # Initialize Rate Limiter with dynamic toggle
 def limiter_request_filter():
+    """Rate limiting is enforced only when security_mode is enabled."""
     try:
-        status = get_setting('security_mode', 'off')
-        return status == 'off'
+        return get_setting('security_mode', 'off') == 'on'
     except Exception:
-        return True # Default to filtered (disabled) if error
+        return True # Fail secure: keep limiting active if setting lookup fails
 
 try:
     limiter = Limiter(
@@ -190,8 +336,16 @@ _db_local = threading.local()
 def connect_to_db():
     db_url = get_database_url()
     if not db_url:
-        app.logger.error("DATABASE_URL environment variable is not set.")
-        return None
+        # Fallback: local SQLite database when no DATABASE_URL is configured
+        try:
+            conn = sqlite3.connect(_sqlite_db_path(), timeout=15, isolation_level=None)
+            conn.row_factory = _sqlite_row_factory
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=10000")
+            return _SQLiteConnection(conn)
+        except Exception as e:
+            app.logger.error(f"SQLite fallback connection failed: {e}")
+            return None
     if psycopg2 is None:
         app.logger.error("psycopg2 (or psycopg2-binary) is not installed.")
         return None
@@ -269,8 +423,9 @@ def parse_dt(val):
 
 def query_db(query, args=(), one=False):
     db = get_db()
-    # Convert SQLite placeholders to PostgreSQL safely
-    query = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", query)
+    if not isinstance(db, _SQLiteConnection):
+        # Convert SQLite placeholders to PostgreSQL safely
+        query = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", query)
     with db.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(query, args)
         rv = cur.fetchall()
@@ -278,12 +433,13 @@ def query_db(query, args=(), one=False):
 
 def commit_db(query, args=()):
     db = get_db()
-    # Convert SQLite placeholders and INSERT OR IGNORE to PostgreSQL safely
-    query = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", query)
-    if 'INSERT OR IGNORE' in query.upper():
-        query = re.sub(r'INSERT OR IGNORE', 'INSERT', query, flags=re.IGNORECASE)
-        if 'ON CONFLICT' not in query.upper():
-            query += ' ON CONFLICT DO NOTHING'
+    if not isinstance(db, _SQLiteConnection):
+        # Convert SQLite placeholders and INSERT OR IGNORE to PostgreSQL safely
+        query = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", query)
+        if 'INSERT OR IGNORE' in query.upper():
+            query = re.sub(r'INSERT OR IGNORE', 'INSERT', query, flags=re.IGNORECASE)
+            if 'ON CONFLICT' not in query.upper():
+                query += ' ON CONFLICT DO NOTHING'
     with db.cursor() as cur:
         cur.execute(query, args)
         db.commit()
@@ -319,8 +475,11 @@ def init_db():
     def safe_execute(query, args=(), commit=True):
         """Execute query in a new transaction/cursor, robustly handling errors."""
         try:
-            # Convert SQLite placeholders
-            query_psql = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", query)
+            if isinstance(db, _SQLiteConnection):
+                query_psql = query
+            else:
+                # Convert SQLite placeholders
+                query_psql = re.sub(r"\?(?=(?:[^']*'[^']*')*[^']*$)", "%s", query)
             with db.cursor() as cur:
                 cur.execute(query_psql, args)
                 if commit:
@@ -511,9 +670,22 @@ def init_db():
         $$;
     """)
 
+    # SQLite fallback: replicate the PostgreSQL DO-block constraints as unique indexes
+    if isinstance(db, _SQLiteConnection):
+        for uq_sql in [
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_session_student ON attendance(session_id, student_id)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_username ON users(username)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_ub_id ON users(ub_id)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_matric ON users(matric)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_dept_code_faculty ON departments(faculty_id, code)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_dept_name_faculty ON departments(faculty_id, name)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS unique_faculty_code ON faculties(code)",
+        ]:
+            safe_execute(uq_sql)
+
     # Seed website status if missing
     safe_execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ('website_status', 'on'))
-    safe_execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ('security_mode', 'off'))
+    safe_execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ('security_mode', 'on'))
         # High-Level Strictness: Global Integrity Protocol enabled by default for all nodes
     safe_execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ('strict_integrity_mode', 'on'))
     safe_execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ('primary_color', '#5b21b6'))
@@ -1159,10 +1331,12 @@ def api_intel_report():
                 import requests
                 # Use ip-api.com for detection (Free for non-commercial, 45 requests/min)
                 # Cache results for 10 minutes to avoid hitting limits
-                v_resp = requests.get(f"http://ip-api.com/json/{ext_ip}?fields=proxy,hosting,mobile", timeout=5)
+                v_resp = requests.get(f"http://ip-api.com/json/{ext_ip}?fields=status,proxy,hosting,mobile", timeout=5)
                 if v_resp.status_code == 200:
                     res = v_resp.json()
-                    if res.get('proxy') or res.get('hosting'):
+                    # Require two independent signals (proxy + datacenter hosting).
+                    # Single flags false-positive on campus/CGNAT/mobile ISP ranges.
+                    if res.get('status') == 'success' and res.get('proxy') and res.get('hosting'):
                         vpn_detected = True
                         if user_id:
                             # Avoid duplicate alerts for the same user/IP in the last hour
@@ -1355,7 +1529,7 @@ def login(role):
                 fails = fails_res['c'] if fails_res else 0
                 if fails >= 5:
                     commit_db("INSERT INTO blocked_ips (ip, reason) VALUES (?,?) ON CONFLICT (ip) DO NOTHING", (ip, "Brute-force attempt detected (UB ID login)"))
-                    security_log("IP_BLOCKED", f"Reason: Brute-force, UB ID login: {ub_id}")
+                    security_log("IP_BLOCKED", f"Reason: Brute-force, UB ID login: {identifier}")
                     return "Suspicious activity detected. Your IP has been blocked.", 403
 
             flash('Invalid UB ID or password')
@@ -1998,6 +2172,15 @@ def mark_attendance_manual(session_id):
 @app.route('/session/<int:session_id>/export')
 def export_session(session_id):
     t = request.args.get('t','excel')
+    # Access control: only the owning lecturer (or higher roles) may export attendance
+    if not g.user or g.user['role'] not in ['lecturer', 'admin', 'superadmin']:
+        return redirect(url_for('login', role='lecturer'))
+    sess = query_db('SELECT * FROM sessions WHERE id = ?', (session_id,), one=True)
+    if not sess:
+        return "Session not found", 404
+    if g.user['role'] == 'lecturer' and sess['lecturer_id'] != g.user['id']:
+        flash('You are not allowed to export this session')
+        return redirect(url_for('lecturer_dashboard'))
     # Join with users, departments, and faculties to get extra info
     rows = query_db('''
         SELECT a.*, d.name as department_name, f.name as faculty_name
@@ -3827,6 +4010,11 @@ if __name__ == '__main__':
     host = os.environ.get('HOST','0.0.0.0')
     port = int(os.environ.get('PORT','5000'))
 
+    # Security: never expose the interactive Werkzeug debugger beyond localhost
+    if debug and host not in ('127.0.0.1', 'localhost', '::1'):
+        print(f"[SECURITY] Debug mode requested with HOST={host}; forcing 127.0.0.1.")
+        host = '127.0.0.1'
+
     # Enhanced port binding logic to handle occupied ports in local development
     import socket
     def is_port_in_use(p):
@@ -3842,7 +4030,17 @@ if __name__ == '__main__':
                 break
         print(f"Port {original_port} in use, switching to {port}")
 
-    app.run(host=host, port=port, debug=debug)
+    # Optional TLS (set SSL_CERT/SSL_KEY to serve HTTPS in dev)
+    ssl_cert = os.environ.get('SSL_CERT')
+    ssl_key = os.environ.get('SSL_KEY')
+    ssl_context = (ssl_cert, ssl_key) if ssl_cert and ssl_key else None
+
+    # Do not leak the underlying server stack version
+    from werkzeug.serving import WSGIRequestHandler
+    WSGIRequestHandler.server_version = 'AtendeX'
+    WSGIRequestHandler.sys_version = ''
+
+    app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)
 
 # Vercel serverless handler
 try:

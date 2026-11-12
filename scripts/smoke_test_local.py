@@ -1,8 +1,16 @@
 """Local smoke tests using Flask test client (no HTTP server needed).
 Covers: lecturer login, create session, student login, mark attendance.
 """
-from index import app, init_db
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'backend')))
+
+from index import app, init_db, _sqlite_db_path
 import sqlite3
+
+app.config['TESTING'] = True
+app.config['WTF_CSRF_ENABLED'] = False
 
 # Ensure DB initialized
 with app.app_context():
@@ -14,9 +22,15 @@ client = app.test_client()
 r = client.post('/login/lecturer', data={'username':'lecturer1','password':'password'}, follow_redirects=True)
 print('Lecturer login:', r.status_code)
 
+# Create a session (token mode, no geofence needed)
+r = client.post('/session/create', data={'course_name':'Smoke Test Course','host':'Test Host',
+                                         'duration':'30','grace':'5','attendance_mode':'token','strict_mode':'0'},
+                follow_redirects=True)
+print('Create session:', r.status_code)
+
 
 # Read latest session (token and id)
-con = sqlite3.connect('atendex.db')
+con = sqlite3.connect(_sqlite_db_path())
 con.row_factory = sqlite3.Row
 cur = con.cursor()
 cur.execute('SELECT id, token FROM sessions ORDER BY id DESC LIMIT 1')
@@ -31,7 +45,7 @@ else:
 
 # Student login and session check
 client2 = app.test_client()
-r = client2.post('/login/student', data={'ub_id':'UB1001','password':'password'}, follow_redirects=True)
+r = client2.post('/login/student', data={'identifier':'UB1001','password':'password'}, follow_redirects=True)
 print('Student login:', r.status_code)
 if token:
     r_check = client2.post('/session/check', json={'token': token, 'lat':6.317, 'lon':5.631})

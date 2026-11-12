@@ -1,6 +1,11 @@
 
 import unittest
-from api.app import app, init_db, generate_password_hash
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'backend')))
+
+from index import app, init_db, generate_password_hash
 from flask import session
 import json
 
@@ -13,7 +18,7 @@ class TestFlexibleLogin(unittest.TestCase):
         with app.app_context():
             init_db()
             # Create a test student
-            from api.app import commit_db
+            from index import commit_db
             commit_db("INSERT INTO users (role, first_name, last_name, ub_id, matric, password_hash, active) VALUES (?,?,?,?,?,?,?)",
                       ('student', 'Test', 'Student', 'UB001', 'MAT001', generate_password_hash('pass123'), 1))
 

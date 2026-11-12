@@ -1,0 +1,1060 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="ImFhODNjMWNiN2JmNjZmMTRmYmZjMDYwODYwMTNjMTE5M2ZkMTU4NjIi.avS73w.4k739LNVBuQT7PpfX_XWYfwWhno">
+
+  <title>AtendeX Portal | Luxury Attendance Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: 'var(--primary)',
+            secondary: 'var(--secondary)',
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/static/js/sync.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+  <!-- Vercel Speed Insights & Web Analytics Integration -->
+  <script>
+    window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+
+  <style>
+    :root {
+      --primary: #5b21b6;
+      --secondary: #7c3aed;
+      --accent-gold: #d4af37;
+      --bg: #ffffff;
+      --text: #0f172a;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(30px) saturate(180%);
+      -webkit-backdrop-filter: blur(30px) saturate(180%);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+    }
+
+    .nav-link-hover {
+      position: relative;
+      transition: all 0.3s ease;
+      color: #0f172a;
+    }
+
+    .nav-link-hover::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      background: rgba(124, 58, 237, 0.05);
+      border-radius: 12px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .nav-link-hover:hover {
+      color: var(--secondary);
+    }
+
+    .nav-link-hover:hover::before { opacity: 1; }
+
+    .nav-link-hover::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 3px;
+      bottom: -6px;
+      left: 50%;
+      background: var(--secondary);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateX(-50%);
+      box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
+      border-radius: 2px;
+    }
+
+    .nav-link-hover:hover::after { width: 100%; }
+
+    @keyframes morph {
+      0%, 100% { border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%; }
+      50% { border-radius: 60% 40% 40% 60% / 60% 60% 40% 40%; }
+    }
+
+    .morphing-blob {
+      animation: morph 8s ease-in-out infinite;
+    }
+
+    /* Animation Classes */
+    .stagger-in {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .stagger-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .luxury-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .luxury-card:hover {
+      transform: translateY(-8px);
+      box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+      border-color: var(--primary);
+    }
+
+    .user-badge {
+      background: var(--primary);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .glow-text {
+      text-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+    }
+
+    .progress-bar {
+      height: 4px;
+      background: #d4af37;
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+    }
+
+    .logo-glow {
+      filter: drop-shadow(0 0 15px rgba(124, 58, 237, 0.4));
+      transition: all 0.3s ease;
+    }
+
+    .logo-glow:hover {
+      filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.6));
+      transform: scale(1.05);
+    }
+
+    .bg-secondary { background-color: var(--secondary) !important; }
+    .text-secondary { color: var(--secondary) !important; }
+    .border-secondary { border-color: var(--secondary) !important; }
+
+    .bg-primary { background-color: var(--primary) !important; }
+    .text-primary { color: var(--primary) !important; }
+    .border-primary { border-color: var(--primary) !important; }
+
+    /* Enhanced button styles */
+    .btn-primary, .btn-auth, .btn-signup, .btn-submit, .btn-login, button[type="submit"], .btn-student, .btn-staff, .btn-admin, .btn-placeholder {
+      background: var(--primary) !important;
+      color: #ffffff !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--accent-gold);
+      transition: all 0.3s ease;
+      font-weight: 800 !important;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .btn-primary:hover::before {
+      left: 100%;
+    }
+
+    .btn-gold {
+      background: #d4af37;
+      box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+    }
+
+    /* Alert box enhancement */
+    .alert-box {
+      background: #ffffff;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      animation: slideInDown 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes slideInDown {
+      from {
+        transform: translate(-50%, -100%);
+        opacity: 0;
+      }
+      to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes bounce-slow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .animate-bounce-slow {
+      animation: bounce-slow 3s ease-in-out infinite;
+    }
+
+    /* Icon rotation on hover */
+    .rotate-hover {
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .rotate-hover:hover {
+      transform: rotate(360deg);
+    }
+
+    /* Gradient text */
+    .gradient-text {
+      color: #d4af37;
+    }
+
+    /* Enhanced scrollbar */
+    ::-webkit-scrollbar { width: 12px; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
+    ::-webkit-scrollbar-thumb {
+      background: #7c3aed;
+      border-radius: 6px;
+      border: 2px solid #f8fafc;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: #d4af37; }
+
+    /* 3D card effect */
+    .card-3d {
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+    }
+
+    .card-3d:hover {
+      transform: perspective(1000px) rotateY(5deg) rotateX(2deg);
+    }
+
+    /* Custom Popup Animations */
+    @keyframes modalShow {
+      0% { opacity: 0; transform: translateY(-100vh) scale(0.9); }
+      60% { opacity: 1; transform: translateY(30px) scale(1.02); }
+      80% { transform: translateY(-10px) scale(0.99); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes modalHide {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-100vh) scale(0.9); }
+    }
+
+    .modal-animate-show {
+      animation: modalShow 0.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+
+    .modal-animate-hide {
+      animation: modalHide 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+
+    @keyframes bellBounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2) rotate(15deg); }
+    }
+    .bell-animate {
+      animation: bellBounce 0.5s ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen selection:bg-secondary/10 selection:text-purple-900">
+
+  <header class="glass-nav sticky top-0 z-[100] transition-all duration-500" id="main-nav">
+    <div class="max-w-7xl mx-auto px-4 lg:px-12 h-20 md:h-24 flex items-center justify-between transition-all duration-500" id="nav-container">
+      <a href="/" class="flex items-center gap-2 md:gap-4 group relative z-10">
+        <div class="relative logo-glow">
+            <div class="absolute inset-0 bg-purple-500 blur-xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
+            <div class="relative p-3 bg-white rounded-2xl group-hover:rotate-12 transition-all duration-500 border border-purple-200 shadow-lg">
+
+                <svg class="text-secondary" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+
+            </div>
+        </div>
+        <div>
+          <span class="text-lg md:text-2xl font-extrabold tracking-tighter text-slate-900 uppercase block leading-none">AtendeX<span class="gradient-text ml-1">Portal</span></span>
+          <div class="progress-bar mt-1 rounded-full" style="width: 40px;"></div>
+        </div>
+      </a>
+
+      <!-- Mobile Menu Toggle -->
+      <button id="mobile-menu-btn" class="md:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all relative z-[110]">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <nav class="hidden md:flex items-center gap-8">
+
+          <a href="/login/student" class="nav-link-hover text-sm font-bold">Student</a>
+          <a href="/login/lecturer" class="nav-link-hover text-sm font-bold">Lecturer</a>
+          <a href="/meet-the-team" class="nav-link-hover text-sm font-bold">Meet the Team</a>
+
+      </nav>
+    </div>
+  </header>
+
+  <!-- Mobile Sidebar Navigation -->
+  <div id="mobile-sidebar" class="fixed inset-0 z-[2000] hidden">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" id="sidebar-overlay"></div>
+    <div class="absolute top-0 right-0 h-full w-4/5 max-w-xs bg-white shadow-2xl flex flex-col p-8 transition-transform duration-500 translate-x-full" id="sidebar-content">
+        <div class="flex justify-between items-center mb-10">
+            <span class="text-xl font-black text-slate-900 uppercase tracking-tighter">Menu</span>
+            <button id="close-sidebar" class="p-2 bg-slate-50 rounded-lg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+
+        <div class="flex flex-col gap-6 flex-1 overflow-y-auto">
+
+                <a href="/login/student" class="text-base font-bold text-slate-700 flex items-center gap-3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> Student Login</a>
+                <a href="/login/lecturer" class="text-base font-bold text-slate-700 flex items-center gap-3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg> Lecturer Login</a>
+                <a href="/meet-the-team" class="text-base font-bold text-slate-700 flex items-center gap-3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Meet the Team</a>
+
+        </div>
+
+        <div class="mt-10 pt-10 border-t border-slate-100 flex flex-col gap-2">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Temporal Status</span>
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span class="text-xs font-bold text-slate-600 uppercase tracking-tighter">System Synchronized</span>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 py-8 md:py-16 relative z-10">
+    <!-- Global Navigation Control -->
+
+
+
+
+
+
+    <div class="w-full">
+
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        --luxury-shadow: 0 25px 50px -12px rgba(91, 33, 182, 0.15);
+    }
+
+    .landing-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .hero-bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background:
+            radial-gradient(circle at 20% 30%, rgba(91, 33, 182, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 80% 70%, rgba(124, 58, 237, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 1) 100%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .hero-title {
+        font-size: clamp(3rem, 10vw, 6rem);
+        font-weight: 900;
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        background: linear-gradient(135deg, #0f172a 0%, var(--primary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1.5rem;
+    }
+
+    .cta-button {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 1.25rem 3rem;
+        border-radius: 100px;
+        font-weight: 800;
+        font-size: 1.1rem;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: var(--luxury-shadow);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .cta-button:hover {
+        transform: translateY(-5px) scale(1.05);
+        box-shadow: 0 30px 60px -12px rgba(91, 33, 182, 0.4);
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2.5rem;
+        margin-top: 6rem;
+    }
+
+    .feature-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(20px);
+        border-radius: 32px;
+        padding: 3rem;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-12px) scale(1.02);
+        border-color: var(--primary);
+        box-shadow:
+            0 30px 60px -12px rgba(91, 33, 182, 0.1),
+            0 18px 36px -18px rgba(0, 0, 0, 0.1);
+        background: white;
+    }
+
+    .card-icon {
+        width: 70px;
+        height: 70px;
+        background: rgba(124, 58, 237, 0.05);
+        color: var(--primary);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        transition: all 0.4s ease;
+    }
+
+    .feature-card:hover .card-icon {
+        background: var(--primary);
+        color: white;
+        transform: rotate(-10deg) scale(1.1);
+    }
+
+    .role-badge {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--secondary);
+        background: rgba(124, 58, 237, 0.05);
+        padding: 6px 16px;
+        border-radius: 50px;
+        margin-bottom: 1rem;
+        display: inline-block;
+    }
+
+    .stagger-in {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .stagger-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .innovation-gradient {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+        background: var(--primary-gradient);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.6s ease;
+    }
+
+    .feature-card:hover .innovation-gradient {
+        transform: scaleX(1);
+    }
+
+</style>
+
+<div class="hero-bg"></div>
+
+<div class="landing-container">
+    <!-- Hero Section -->
+    <header class="text-center py-20 md:py-32 stagger-in">
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full mb-8">
+            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span class="text-xs font-black uppercase tracking-widest text-slate-500">System Genesis v4.0 Active</span>
+        </div>
+
+        <h1 class="hero-title">
+            AtendeX Portal<br>
+            <span class="text-slate-400 font-light">Innovation in Presence.</span>
+        </h1>
+
+        <p class="max-w-3xl mx-auto text-lg md:text-xl text-slate-500 font-medium leading-relaxed mb-12">
+            AtendeX Technology delivers a high-performance digital ecosystem designed to transform the traditional attendance experience into a sleek, high-integrity workflow.
+        </p>
+
+        <a href="/portal" class="cta-button">
+            Enter Portal
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </a>
+    </header>
+
+    <!-- Role-Based Innovation Sections -->
+    <!-- Trust & Integrity Section -->
+    <section class="mt-24 md:mt-40 stagger-in">
+        <div class="text-center mb-12 md:mb-20">
+            <h2 class="text-3xl md:text-5xl font-black text-slate-900 mb-6">Built on Absolute Integrity.</h2>
+            <p class="text-slate-500 font-medium max-w-2xl mx-auto">
+                The AtendeX-Grid Ecosystem employs advanced security protocols to ensure every presence event is a verified reflection of reality.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="p-10 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col justify-center">
+                <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm mb-6">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+                <h3 class="text-2xl font-bold text-slate-900 mb-4">Spatial Tethering</h3>
+                <p class="text-slate-500 leading-relaxed mb-6">
+                    Our high-fidelity GPS kernel creates a sub-meter virtual classroom lattice. Presence is only authorized within the precise geofence of the lecture node.
+                </p>
+                <div class="flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest">
+                    <span class="w-2 h-2 bg-primary rounded-full"></span>
+                    Haversine Validated
+                </div>
+            </div>
+
+            <div class="p-10 bg-slate-900 rounded-[2.5rem] text-white flex flex-col justify-center">
+                <div class="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-purple-400 shadow-sm mb-6">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <h3 class="text-2xl font-bold mb-4">Zero-Proxy Guard</h3>
+                <p class="text-slate-400 leading-relaxed mb-6">
+                    Integrated VPN detection and session freshness protocols neutralize proxy attendance. System refreshes automatically upon tab-switching or inactivity.
+                </p>
+                <div class="flex items-center gap-2 text-xs font-black text-purple-400 uppercase tracking-widest">
+                    <span class="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
+                    Threat Mode Active
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="feature-grid">
+        <!-- Lecturer -->
+        <div class="feature-card stagger-in" style="transition-delay: 0.1s;">
+            <div class="card-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            </div>
+            <div class="role-badge">Lecturer Kernel</div>
+            <h3 class="text-2xl font-black text-slate-900 mb-4">Session Genesis Engine</h3>
+            <p class="text-slate-500 font-medium leading-relaxed">
+                Initiate smart attendance sessions in seconds. Choose between GPS-verified location checks or Token-Sync protocols with a "Live Analytics Pulse" to monitor student arrivals in real-time.
+            </p>
+            <div class="innovation-gradient"></div>
+        </div>
+
+        <!-- Student -->
+        <div class="feature-card stagger-in" style="transition-delay: 0.2s;">
+            <div class="card-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <div class="role-badge">Student Lattice</div>
+            <h3 class="text-2xl font-black text-slate-900 mb-4">Spatial Handshake</h3>
+            <p class="text-slate-500 font-medium leading-relaxed">
+                Experience frictionless verification through a single tap. Access your personal Temporal History Retrieval hub to track lecture hours and verify your institutional digital twin.
+            </p>
+            <div class="innovation-gradient"></div>
+        </div>
+
+        <!-- Admin -->
+        <div class="feature-card stagger-in" style="transition-delay: 0.3s;">
+            <div class="card-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </div>
+            <div class="role-badge">Root Command</div>
+            <h3 class="text-2xl font-black text-slate-900 mb-4">Institutional Oversight</h3>
+            <p class="text-slate-500 font-medium leading-relaxed">
+                Dynamic management of faculties and departments via Bulk Matrix Injection. Synchronize academic structures with the "Auto-Update" engine for absolute alignment.
+            </p>
+            <div class="innovation-gradient"></div>
+        </div>
+    </div>
+
+    <!-- Final Call to Action -->
+    <section class="mt-24 md:mt-40 mb-20 text-center stagger-in">
+        <h2 class="text-4xl md:text-6xl font-black text-slate-900 mb-8">Ready to synchronize?</h2>
+        <a href="/portal" class="cta-button">
+            Launch Portal Hub
+        </a>
+        <p class="mt-8 text-slate-400 font-bold uppercase tracking-[0.2em] text-xs">
+            AtendeX Technology &copy; 2026 // Designing Integrity Based Solutions
+        </p>
+    </section>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.stagger-in').forEach(el => observer.observe(el));
+    });
+</script>
+
+    </div>
+  </main>
+
+  <!-- Custom Modal -->
+  <div id="custom-modal" class="fixed inset-0 z-[3000] hidden flex items-center justify-center p-4 md:p-6 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300">
+    <div class="luxury-card max-w-md w-full p-6 md:p-8 rounded-[2rem] opacity-0" id="modal-content">
+      <div class="flex items-center gap-4 mb-6">
+        <div class="p-3 bg-secondary/10 rounded-2xl text-secondary" id="modal-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h3 class="text-xl font-extrabold text-slate-900" id="modal-title">Confirmation</h3>
+      </div>
+      <p class="text-slate-600 font-medium mb-8" id="modal-message">Are you sure you want to proceed?</p>
+      <div class="flex gap-4">
+        <button id="modal-cancel" class="flex-1 px-6 py-3.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all border border-slate-200">Cancel</button>
+        <button id="modal-confirm" class="flex-1 px-6 py-3.5 rounded-xl text-sm font-bold text-white bg-secondary hover:scale-105 transition-all shadow-lg shadow-purple-200">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-6 right-1/2 translate-x-1/2 md:translate-x-0 md:bottom-10 md:right-10 z-[10000] space-y-4 w-full md:w-auto flex flex-col items-center md:items-end px-5 md:px-0"></div>
+
+  <footer class="max-w-7xl mx-auto px-6 lg:px-12 py-12 border-t border-purple-100 mt-20">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+        <div class="flex items-center gap-4">
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                <svg class="text-slate-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Designing Integrity based Solutions</span>
+                <span class="text-sm font-extrabold text-slate-600">© 2026 AtendeX Technology</span>
+            </div>
+        </div>
+
+        <div id="footer-team-carousel" class="transition-all duration-500 opacity-0 transform translate-y-2">
+            <!-- Dynamic Team Content -->
+        </div>
+    </div>
+  </footer>
+
+  <script>
+    // Global Utilities
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Persistent Device Identifier
+    (function() {
+      let deviceId = localStorage.getItem('atendex_device_id');
+      if (!deviceId) {
+        deviceId = 'dev-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('atendex_device_id', deviceId);
+      }
+      window.atendexDeviceId = deviceId;
+    })();
+
+    // Mobile Sidebar Logic
+    (function() {
+        const btn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.getElementById('mobile-sidebar');
+        const content = document.getElementById('sidebar-content');
+        const overlay = document.getElementById('sidebar-overlay');
+        const close = document.getElementById('close-sidebar');
+
+        function openSidebar() {
+            sidebar.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('translate-x-full');
+            }, 10);
+        }
+
+        function closeSidebar() {
+            content.classList.add('translate-x-full');
+            setTimeout(() => {
+                sidebar.classList.add('hidden');
+            }, 500);
+        }
+
+        btn?.addEventListener('click', openSidebar);
+        overlay?.addEventListener('click', closeSidebar);
+        close?.addEventListener('click', closeSidebar);
+    })();
+
+    // Professional Scroll Interaction with Enhanced Effects
+    window.addEventListener('scroll', () => {
+      const nav = document.getElementById('main-nav');
+      const navContainer = document.getElementById('nav-container');
+      if (window.scrollY > 30) {
+        nav.classList.add('shadow-2xl');
+        nav.style.background = 'rgba(255, 255, 255, 0.98)';
+        if (window.innerWidth > 768) {
+            navContainer.classList.replace('h-24', 'h-20');
+        }
+      } else {
+        nav.classList.remove('shadow-2xl');
+        nav.style.background = 'rgba(255, 255, 255, 0.95)';
+        if (window.innerWidth > 768) {
+            navContainer.classList.replace('h-20', 'h-24');
+        }
+      }
+    });
+
+    // Custom Confirmation Modal
+    function showConfirm(title, message, options = {}) {
+      const modal = document.getElementById('custom-modal');
+      const content = document.getElementById('modal-content');
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-message').innerText = message;
+
+      const confirmBtn = document.getElementById('modal-confirm');
+      const cancelBtn = document.getElementById('modal-cancel');
+
+      confirmBtn.innerText = options.confirmText || 'Confirm';
+      cancelBtn.innerText = options.cancelText || 'Cancel';
+
+      const confirmBaseClass = "flex-1 px-6 py-3.5 rounded-xl text-sm font-bold text-white transition-all shadow-lg";
+      if (options.confirmClass) {
+          confirmBtn.className = `${confirmBaseClass} ${options.confirmClass}`;
+      } else {
+          confirmBtn.className = `${confirmBaseClass} bg-secondary hover:scale-105 shadow-purple-200`;
+      }
+
+      modal.classList.remove('hidden');
+      content.classList.remove('modal-animate-hide');
+      content.classList.add('modal-animate-show');
+
+      return new Promise((resolve) => {
+        const handleConfirm = () => {
+          close(true);
+        };
+        const handleCancel = () => {
+          close(false);
+        };
+        const close = (result) => {
+          content.classList.remove('modal-animate-show');
+          content.classList.add('modal-animate-hide');
+          setTimeout(() => {
+            modal.classList.add('hidden');
+            confirmBtn.removeEventListener('click', handleConfirm);
+            cancelBtn.removeEventListener('click', handleCancel);
+            resolve(result);
+          }, 500);
+        };
+        confirmBtn.addEventListener('click', handleConfirm, { once: true });
+        cancelBtn.addEventListener('click', handleCancel, { once: true });
+      });
+    }
+
+    // Custom Alert Modal
+    async function showAlert(title, message, options = {}) {
+        const modal = document.getElementById('custom-modal');
+        const cancelBtn = document.getElementById('modal-cancel');
+        cancelBtn.classList.add('hidden');
+        const res = await showConfirm(title, message, {
+            confirmText: options.buttonText || 'OK',
+            confirmClass: options.buttonClass
+        });
+        cancelBtn.classList.remove('hidden');
+        return res;
+    }
+
+    // Elegant Toast Notification with Enhanced Styling
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+
+      const colors = {
+        'info': { bg: 'bg-primary', border: 'border-primary' },
+        'warning': { bg: 'bg-yellow-500', border: 'border-yellow-500' },
+        'success': { bg: 'bg-green-600', border: 'border-green-600' },
+        'error': { bg: 'bg-red-600', border: 'border-red-600' }
+      };
+
+      const color = colors[type] || colors.info;
+
+    toast.className = `bg-white backdrop-blur-xl border ${color.border} px-5 md:px-7 py-4 md:py-6 rounded-2xl shadow-2xl flex items-center justify-between w-[calc(100vw-40px)] md:min-w-[380px] md:w-auto transform transition-all duration-700 translate-y-10 opacity-0 relative overflow-hidden`;
+
+      toast.innerHTML = `
+        <div class="absolute left-0 top-0 bottom-0 w-1 ${color.bg}"></div>
+        <div class="flex items-center gap-4 relative z-10">
+          <div class="p-2 ${color.bg} rounded-xl flex-shrink-0">
+              <svg class="text-white" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+            </div>
+          <div class="flex flex-col min-w-0">
+              <span class="text-[9px] md:text-[10px] uppercase tracking-widest font-extrabold text-slate-500 mb-0.5">${type} notification</span>
+              <span class="text-xs md:text-sm font-bold text-slate-900 truncate md:whitespace-normal">${message}</span>
+            </div>
+        </div>
+      <button class="ml-4 p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-600 flex-shrink-0 relative z-10" onclick="this.parentElement.remove()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      `;
+
+      container.appendChild(toast);
+
+      // Trigger animation
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-10', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0');
+        setTimeout(() => toast.remove(), 700);
+      }, 6000);
+    }
+
+    // Auto-dismiss Alerts with Smooth Animation
+    document.addEventListener('DOMContentLoaded', () => {
+      const alerts = document.querySelectorAll('.alert-box');
+      alerts.forEach(alert => {
+        setTimeout(() => {
+          alert.style.transform = 'translateX(400px)';
+          alert.style.opacity = '0';
+          setTimeout(() => alert.remove(), 500);
+        }, 5000);
+      });
+    });
+
+    // Team Carousel Logic
+    (function() {
+      let team = [];
+      let currentIndex = 0;
+      const carousel = document.getElementById('footer-team-carousel');
+
+      async function fetchTeam() {
+        try {
+          const resp = await fetch('/api/team/cycling');
+          team = await resp.json();
+          if (team.length > 0) {
+            updateCarousel();
+            setInterval(rotateTeam, 5000);
+          } else {
+            // Fallback if team is empty
+            carousel.innerHTML = `
+              <a href="/meet-the-team" class="group flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all hover:scale-105">
+                <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold">AT</div>
+                <div class="text-left">
+                    <span class="text-[10px] font-extrabold text-slate-600 uppercase tracking-tighter block">The Visionaries</span>
+                    <span class="text-sm font-bold text-slate-900">ATENDEX TEAM</span>
+                    <span class="text-[9px] font-medium text-slate-500 block uppercase">MEET THE COLLECTIVE</span>
+                </div>
+              </a>`;
+            carousel.classList.remove('opacity-0', 'translate-y-2');
+          }
+        } catch (e) { console.error('Carousel error', e); }
+      }
+
+      function rotateTeam() {
+        currentIndex = (currentIndex + 1) % team.length;
+        carousel.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => {
+          updateCarousel();
+          carousel.classList.remove('opacity-0', 'translate-y-2');
+        }, 500);
+      }
+
+      function updateCarousel() {
+        const m = team[currentIndex];
+        if (!m) return;
+        const initials = m.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        carousel.innerHTML = `
+          <a href="/meet-the-team/${encodeURIComponent(m.role)}/${encodeURIComponent(m.name)}" class="group flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all hover:scale-105">
+            <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold group-hover:rotate-12 transition-transform">
+                ${initials}
+            </div>
+            <div class="text-left">
+                <span class="text-[10px] font-extrabold text-slate-600 uppercase tracking-tighter block">Team Visionary</span>
+                <span class="text-sm font-bold text-slate-900">${m.name.toUpperCase()}</span>
+                <span class="text-[9px] font-medium text-slate-500 block uppercase">${m.role}</span>
+            </div>
+          </a>`;
+        if (currentIndex === 0) carousel.classList.remove('opacity-0', 'translate-y-2');
+      }
+
+      fetchTeam();
+    })();
+
+    // Intelligence Telemetry & Security Sentinel
+    (function() {
+        async function reportIntel(pos = null) {
+            let externalIp = 'detecting...';
+            let geoData = {};
+
+            try {
+                // Fetch high-fidelity location data via external security API
+                const resp = await fetch('https://ipapi.co/json/');
+                geoData = await resp.json();
+                externalIp = geoData.ip;
+            } catch (e) { console.error('Sentinel: IP detection bypassed'); }
+
+            const data = {
+                lat: pos ? pos.coords.latitude : (geoData.latitude || null),
+                lon: pos ? pos.coords.longitude : (geoData.longitude || null),
+                url: window.location.href,
+                device_info: {
+                    ip: externalIp,
+                    city: geoData.city,
+                    isp: geoData.org,
+                    screen: `${window.screen.width}x${window.screen.height}`,
+                    inner: `${window.innerWidth}x${window.innerHeight}`,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    cores: navigator.hardwareConcurrency || 'N/A',
+                    memory: navigator.deviceMemory || 'N/A',
+                    touch: navigator.maxTouchPoints > 0,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                }
+            };
+            try {
+                const r = await fetch('/api/intel/report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify(data)
+                });
+                const res = await r.json();
+                if (res.vpn_detected) {
+                    showAlert('VPN Detected', 'We have detected that you are using a VPN or Proxy. To maintain system integrity and avoid account suspension, please turn off your VPN immediately.', {
+                        confirmText: 'I Understand',
+                        confirmClass: 'bg-red-600'
+                    });
+                }
+            } catch (e) {}
+        }
+
+        window.addEventListener('load', () => {
+            // Sentinel Activation: Capture location and identity markers for security audit
+            setTimeout(() => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(reportIntel, () => reportIntel(), {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    });
+                } else {
+                    reportIntel();
+                }
+            }, 2000);
+        });
+    })();
+
+    // Inactivity & Zero-Proxy Guard
+    (function() {
+        let inactivityTimer;
+        let tabAwayTimer;
+        const LIMIT = 5 * 60 * 1000; // 5 minutes
+
+        function resetInactivity() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                showToast('Refreshing session due to inactivity...', 'info');
+                setTimeout(() => location.reload(), 1500);
+            }, LIMIT);
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) {
+                tabAwayTimer = setTimeout(() => {
+                    showToast('Refreshing session (security protocol)...', 'warning');
+                    setTimeout(() => location.reload(), 1500);
+                }, LIMIT);
+            } else {
+                clearTimeout(tabAwayTimer);
+            }
+        }
+
+        // Initialize guards
+        window.addEventListener('mousemove', resetInactivity);
+        window.addEventListener('keypress', resetInactivity);
+        window.addEventListener('touchstart', resetInactivity);
+        window.addEventListener('click', resetInactivity);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        resetInactivity();
+    })();
+
+    // Add entrance animation to main content
+    window.addEventListener('load', () => {
+      const mainCard = document.querySelector('.luxury-card');
+      if (mainCard) {
+        mainCard.style.opacity = '0';
+        mainCard.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+          mainCard.style.transition = 'all 1s cubic-bezier(0.4, 0, 0.2, 1)';
+          mainCard.style.opacity = '1';
+          mainCard.style.transform = 'translateY(0)';
+        }, 200);
+      }
+    });
+  </script>
+</body>
+</html>
